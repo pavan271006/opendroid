@@ -289,14 +289,28 @@ class OpenDroidService : Service() {
 
     private fun bringAssistantToFront() {
         try {
-            val intent = Intent(this, com.opendroid.ai.MainActivity::class.java).apply {
+            val intent = Intent(this, com.opendroid.ai.ui.overlay.VoiceOverlayActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 putExtra("EXTRA_VOICE_TRIGGERED", true)
             }
             startActivity(intent)
         } catch (e: Exception) {
-            Log.e("OpenDroidService", "Failed to bring MainActivity to front", e)
+            Log.e("OpenDroidService", "Failed to bring VoiceOverlayActivity to front", e)
         }
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        Log.d("OpenDroidService", "App swiped from recents -> maintaining foreground service alive")
+        val restartIntent = Intent(applicationContext, OpenDroidService::class.java)
+        try {
+            val pendingIntent = android.app.PendingIntent.getService(
+                applicationContext, 101, restartIntent,
+                android.app.PendingIntent.FLAG_ONE_SHOT or android.app.PendingIntent.FLAG_IMMUTABLE
+            )
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as? android.app.AlarmManager
+            alarmManager?.set(android.app.AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + 1000L, pendingIntent)
+        } catch (e: Exception) {}
     }
 
     private fun startListeningForQuery() {

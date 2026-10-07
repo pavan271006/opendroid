@@ -98,6 +98,17 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+        </activity>
+
+        <!-- Google Assistant style Translucent Voice Overlay Activity -->
+        <activity
+            android:name=".ui.overlay.VoiceOverlayActivity"
+            android:theme="@style/Theme.OpenDroid.VoiceOverlay"
+            android:exported="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:showForAllUsers="true"
+            android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.ASSIST" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -120,7 +131,8 @@
         <service
             android:name=".core.service.OpenDroidService"
             android:foregroundServiceType="microphone|specialUse"
-            android:exported="false">
+            android:exported="false"
+            android:stopWithTask="false">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Voice assistant agent loop; runs without microphone until the user grants RECORD_AUDIO" />

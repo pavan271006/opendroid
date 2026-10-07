@@ -34,14 +34,14 @@ class OpenDroidVoiceInteractionSession(context: Context) : VoiceInteractionSessi
         }
 
         try {
-            // Bring assistant UI overlay to front over lock screen
-            val uiIntent = Intent(context, MainActivity::class.java).apply {
+            // Bring Google Assistant style bottom sheet overlay to front over lock screen
+            val uiIntent = Intent(context, com.opendroid.ai.ui.overlay.VoiceOverlayActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
                 putExtra("EXTRA_VOICE_TRIGGERED", true)
             }
             context.startActivity(uiIntent)
         } catch (e: Exception) {
-            Log.e("VoiceInteraction", "Failed to start MainActivity on assist", e)
+            Log.e("VoiceInteraction", "Failed to start VoiceOverlayActivity on assist", e)
         }
 
         hide()

@@ -24,9 +24,9 @@ class OpenDroidTileService : TileService() {
             startForegroundService(serviceIntent)
         } catch (e: Exception) {}
 
-        // Launch UI overlay
+        // Launch Google Assistant style UI overlay
         try {
-            val mainIntent = Intent(this, MainActivity::class.java).apply {
+            val mainIntent = Intent(this, com.opendroid.ai.ui.overlay.VoiceOverlayActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 putExtra("EXTRA_VOICE_TRIGGERED", true)
             }
