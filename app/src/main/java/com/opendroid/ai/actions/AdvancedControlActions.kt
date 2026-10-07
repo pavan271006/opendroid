@@ -78,7 +78,8 @@ class AdvancedControlActions @Inject constructor() {
         GetScreenTextAction(),
         ClickCoordinatesAction(),
         PressEnterAction(),
-        WaitAction()
+        WaitAction(),
+        RunTermuxCommandAction()
     )
 
     private class GetSystemInfoAction : Action {
@@ -511,6 +512,49 @@ class AdvancedControlActions @Inject constructor() {
             val zipFilePath = params["zipFilePath"] ?: return ActionResult(false, null, "zipFilePath parameter is missing")
             val destDirPath = params["destDirPath"] ?: return ActionResult(false, null, "destDirPath parameter is missing")
             return StorageWorkspaceProvider.unzipFile(context, zipFilePath, destDirPath)
+        }
+    }
+
+    private class RunTermuxCommandAction : Action {
+        override val name: String = "RUN_TERMUX_COMMAND"
+        override suspend fun execute(params: Map<String, String>, context: Context): ActionResult {
+            val command = params["command"] ?: params["cmd"] ?: params["text"] ?: ""
+            if (command.isBlank()) {
+                return ActionResult(false, null, "No command provided to run in Termux.")
+            }
+            return try {
+                val launchIntent = context.packageManager.getLaunchIntentForPackage("com.termux")
+                if (launchIntent != null) {
+                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    context.startActivity(launchIntent)
+
+                    val service = com.opendroid.ai.accessibility.OpenDroidAccessibilityService.getInstance()
+                    if (service != null) {
+                        delay(400)
+                        val sent = com.opendroid.ai.accessibility.UniversalAppAutomator.automateInputAndSend(command)
+                        if (!sent) {
+                            com.opendroid.ai.accessibility.GenericAppAutomator.typeText("terminal", command)
+                            com.opendroid.ai.accessibility.GenericAppAutomator.pressEnter()
+                        }
+                    }
+                    ActionResult(true, "Executed in Termux: $command", null)
+                } else {
+                    val runIntent = Intent("com.termux.RUN_COMMAND").apply {
+                        setClassName("com.termux", "com.termux.app.RunCommandService")
+                        putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/bash")
+                        putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", command))
+                        putExtra("com.termux.RUN_COMMAND_IN_BACKGROUND", false)
+                    }
+                    try {
+                        context.startService(runIntent)
+                        ActionResult(true, "Sent to Termux background service: $command", null)
+                    } catch (e: Exception) {
+                        ActionResult(false, null, "Termux is not installed on this device.")
+                    }
+                }
+            } catch (e: Exception) {
+                ActionResult(false, null, "Failed to execute Termux command: ${e.message}")
+            }
         }
     }
 }

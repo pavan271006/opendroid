@@ -1228,6 +1228,18 @@ object ActionSchema {
             examples = listOf("wait 2 seconds", "wait for the app to load", "pause for a moment"),
             category = ActionCategory.ADVANCED
         ),
+        ActionDefinition(
+            name = "RUN_TERMUX_COMMAND",
+            description = "Runs a shell script or terminal command in Termux",
+            params = listOf(
+                ParamDefinition("command", ParamType.STRING, true, "Shell or bash command to run in Termux")
+            ),
+            examples = listOf(
+                "run python script in termux", "exec termux command",
+                "run bash in termux", "termux ls -la"
+            ),
+            category = ActionCategory.ADVANCED
+        ),
 
         // ── AGENT ───────────────────────────────────────
 

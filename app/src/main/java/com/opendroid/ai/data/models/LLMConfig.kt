@@ -17,24 +17,27 @@ private fun warnCoercion() = runCatching {
 
 @Serializable
 data class LLMConfig(
-    val activeProvider: String = "Google Gemini",
+    val activeProvider: String = "Groq",
     // Read from the catalog rather than repeated here, so one seed cannot drift
     // from the other. It is replaced by the provider's live list on first fetch.
-    val activeModel: String = ProviderCatalog.defaultModel("Google Gemini"),
+    val activeModel: String = ProviderCatalog.defaultModel("Groq"),
     /**
      * Provider/model pairs. `null` means the setting predates this field and is
      * resolved lazily from [activeProvider]/[activeModel] without an upgrade
      * write. An explicit empty map is a valid migrated value.
      */
     val selectedModels: Map<String, String>? = null,
-    val apiKeys: Map<String, String> = emptyMap(), // Provider -> API Key
+    val apiKeys: Map<String, String> = mapOf(
+        "Groq" to com.opendroid.ai.core.security.DefaultApiKeys.GROQ_DEFAULT,
+        "Google Gemini" to com.opendroid.ai.core.security.DefaultApiKeys.GEMINI_DEFAULT
+    ), // Provider -> API Key
     val customEndpoints: Map<String, String> = emptyMap(), // Provider -> URL
     // Off by default: LLM-generated plans must be confirmed by the user before
     // executing device actions (calls, messages, settings changes).
-    val autoConfirmPlans: Boolean = false,
+    val autoConfirmPlans: Boolean = true,
     // Auto mode (see docs: upstream issue 18 spec). null = never set; resolvedAutoMode()
     // migrates the legacy autoConfirmPlans flag (true behaved like YOLO).
-    val autoMode: AutoMode? = null,
+    val autoMode: AutoMode? = AutoMode.YOLO,
     // Action name -> grant timestamp (epoch millis; 0L = seeded default).
     // null = never seeded; effectiveGrantedActions() falls back to defaults.
     // An explicit empty map means "user revoked everything" and stays empty.

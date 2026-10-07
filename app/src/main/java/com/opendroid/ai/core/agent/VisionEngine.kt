@@ -102,7 +102,11 @@ class VisionEngine @Inject constructor(
         """.trimIndent()
 
         return try {
-            val provider = llmProviderFactory.getActiveProvider()
+            val provider = try {
+                llmProviderFactory.getProviderByName("Google Gemini")
+            } catch (e: Exception) {
+                llmProviderFactory.getActiveProvider()
+            }
             val imageMessage = ChatMessage(
                 id = UUID.randomUUID().toString(),
                 text = visionPrompt,
@@ -120,8 +124,13 @@ class VisionEngine @Inject constructor(
             )
             response.content.trim()
         } catch (e: Exception) {
-            Log.e(TAG, "Vision analysis failed: ${e.message}")
-            "I captured the screenshot but couldn't analyze it: ${e.message}"
+            Log.e(TAG, "Vision analysis failed with image: ${e.message}, attempting text fallback")
+            val screenText = getScreenText()
+            if (screenText != null) {
+                analyzeWithText(screenText, userQuestion)
+            } else {
+                "I captured the screenshot but couldn't analyze it: ${e.message}"
+            }
         }
     }
 

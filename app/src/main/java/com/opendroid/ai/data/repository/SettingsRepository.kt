@@ -88,10 +88,17 @@ class SettingsRepository internal constructor(
      */
     private fun mergeSecretsForRead(persisted: LLMConfig): LLMConfig {
         val snapshot = (readCredentialSnapshot() as? CredentialSnapshotResult.Success)?.snapshot
-            ?: return persisted.copy(apiKeys = emptyMap(), elevenLabsApiKey = "")
+        val effectiveApiKeys = buildMap {
+            put("Groq", com.opendroid.ai.core.security.DefaultApiKeys.GROQ_DEFAULT)
+            put("Google Gemini", com.opendroid.ai.core.security.DefaultApiKeys.GEMINI_DEFAULT)
+            if (snapshot != null) {
+                putAll(snapshot.providerApiKeys)
+            }
+            putAll(persisted.apiKeys)
+        }
         return persisted.copy(
-            apiKeys = snapshot.providerApiKeys,
-            elevenLabsApiKey = snapshot.elevenLabsApiKey.orEmpty()
+            apiKeys = effectiveApiKeys,
+            elevenLabsApiKey = snapshot?.elevenLabsApiKey ?: persisted.elevenLabsApiKey
         )
     }
 
@@ -313,7 +320,13 @@ class SettingsRepository internal constructor(
 
     private fun decodeConfig(configStr: String?): LLMConfig = if (configStr != null) {
         try {
-            json.decodeFromString<LLMConfig>(configStr)
+            val decoded = json.decodeFromString<LLMConfig>(configStr)
+            val mergedKeys = buildMap {
+                put("Groq", com.opendroid.ai.core.security.DefaultApiKeys.GROQ_DEFAULT)
+                put("Google Gemini", com.opendroid.ai.core.security.DefaultApiKeys.GEMINI_DEFAULT)
+                putAll(decoded.apiKeys)
+            }
+            decoded.copy(apiKeys = mergedKeys)
         } catch (_: Exception) {
             LLMConfig()
         }

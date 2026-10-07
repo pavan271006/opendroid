@@ -297,32 +297,33 @@ class CommunicationActions @Inject constructor(
                 "whatsapp://send?text=$encodedMsg".toUri()
             }
             val intent = Intent(Intent.ACTION_VIEW, whatsappUri).apply {
-                setPackage("com.whatsapp")
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            val pm = context.packageManager
+            val waPackages = listOf("com.whatsapp", "com.whatsapp.w4b", "com.gbwhatsapp")
+            val installedWaPkg = waPackages.firstOrNull { pkg ->
+                try {
+                    pm.getPackageInfo(pkg, 0)
+                    true
+                } catch (e: Exception) {
+                    false
+                }
+            }
+            if (installedWaPkg != null) {
+                intent.setPackage(installedWaPkg)
             }
             context.startActivity(intent)
 
             val service = OpenDroidAccessibilityService.getInstance()
             if (service != null) {
-                val autoSent = WhatsAppAutomator.automateSend(message)
+                val autoSent = com.opendroid.ai.accessibility.UniversalAppAutomator.automateInputAndSend(message)
                 if (autoSent) {
                     return ActionResult(true, "Sent your message to $contactLabel!", null)
                 }
-                // First attempt didn't confirm — try one more time with a longer wait
-                kotlinx.coroutines.delay(2000)
-                val retryClicked = service.findAndClickById("com.whatsapp:id/send") ||
-                                   service.findAndClick("Send") ||
-                                   service.findAndClick("send")
-                if (retryClicked) {
-                    // We clicked something — check if it actually sent
-                    kotlinx.coroutines.delay(500)
-                    val verifyResult = verifySendCompleted(service)
-                    if (verifyResult != false) {
-                        // Verified or inconclusive → trust the click
-                        return ActionResult(true, "Message sent to $contactLabel!", null)
-                    }
-                    // Verification says input field still has text — send didn't work
-                    return ActionResult(false, null, "I tapped send but the message is still in the input field. Please send it manually.", true)
+                // Quick retry with IME submit
+                kotlinx.coroutines.delay(500)
+                if (service.performImeEnter()) {
+                    return ActionResult(true, "Message sent to $contactLabel!", null)
                 }
             }
 

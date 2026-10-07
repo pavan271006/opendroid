@@ -67,30 +67,35 @@ class WakeWordDetector(private val context: Context) {
             override fun onEndOfSpeech() {}
             
             override fun onError(error: Int) {
-                // Restart listening loop on error or timeout after a delay
-                scheduleRestart()
+                // Adjust delay based on error type
+                val delay = when (error) {
+                    SpeechRecognizer.ERROR_RECOGNIZER_BUSY, SpeechRecognizer.ERROR_AUDIO -> 600L
+                    SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 250L
+                    else -> 400L
+                }
+                scheduleRestart(delay)
             }
 
             override fun onResults(results: Bundle?) {
                 val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 if (matches != null) {
                     for (match in matches) {
-                        if (match.contains("siri", ignoreCase = true) || match.contains("hey siri", ignoreCase = true) || match.contains("hey jarvis", ignoreCase = true) || match.contains("jarvis", ignoreCase = true) || match.contains("opendroid", ignoreCase = true) || match.contains("open droid", ignoreCase = true)) {
+                        if (isWakeWordMatch(match)) {
                             triggerWakeWord()
-                            break
+                            return
                         }
                     }
                 }
-                scheduleRestart()
+                scheduleRestart(250L)
             }
 
             override fun onPartialResults(partialResults: Bundle?) {
                 val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 if (matches != null) {
                     for (match in matches) {
-                        if (match.contains("siri", ignoreCase = true) || match.contains("hey siri", ignoreCase = true) || match.contains("hey jarvis", ignoreCase = true) || match.contains("jarvis", ignoreCase = true) || match.contains("opendroid", ignoreCase = true) || match.contains("open droid", ignoreCase = true)) {
+                        if (isWakeWordMatch(match)) {
                             triggerWakeWord()
-                            break
+                            return
                         }
                     }
                 }
@@ -102,27 +107,39 @@ class WakeWordDetector(private val context: Context) {
         try {
             speechRecognizer?.startListening(intent)
         } catch (e: Exception) {
-            scheduleRestart()
+            scheduleRestart(500L)
         }
     }
 
-    private fun triggerWakeWord() {
-        onWakeWordDetectedCallback?.invoke()
+    private fun isWakeWordMatch(match: String): Boolean {
+        val lower = match.lowercase(Locale.ROOT)
+        return lower.contains("siri") ||
+               lower.contains("hey siri") ||
+               lower.contains("jarvis") ||
+               lower.contains("hey jarvis") ||
+               lower.contains("opendroid") ||
+               lower.contains("open droid")
     }
 
-    private fun scheduleRestart() {
+    private fun triggerWakeWord() {
+        if (!isListening) return
+        cleanupRecognizer()
+        handler.removeCallbacks(restartRunnable)
+        val callback = onWakeWordDetectedCallback
+        callback?.invoke()
+    }
+
+    private fun scheduleRestart(delayMs: Long = 300L) {
         handler.removeCallbacks(restartRunnable)
         if (isListening) {
-            // Post restart with 1000ms delay to let the audio system settle and prevent rapid flickering/beeping
-            handler.postDelayed(restartRunnable, 1000)
+            handler.postDelayed(restartRunnable, delayMs)
         }
     }
 
     private fun cleanupRecognizer() {
         try {
             speechRecognizer?.stopListening()
-        } catch (e: Exception) {}
-        try {
+            speechRecognizer?.cancel()
             speechRecognizer?.destroy()
         } catch (e: Exception) {}
         speechRecognizer = null
