@@ -27,7 +27,7 @@ object ProviderCatalog {
         ProviderSpec("OpenAI", "gpt-4o"),
         ProviderSpec("Anthropic Claude", ClaudeModelCatalog.defaultModelId),
         ProviderSpec("Mistral AI", "mistral-large-latest"),
-        ProviderSpec("Groq", "llama-3.3-70b-versatile"),
+        ProviderSpec("Groq", "qwen/qwen3.8-27b"),
         // OpenRouter's auto-router always resolves to a live model, so this seed
         // cannot be retired out from under the user.
         ProviderSpec("OpenRouter", "openrouter/auto"),

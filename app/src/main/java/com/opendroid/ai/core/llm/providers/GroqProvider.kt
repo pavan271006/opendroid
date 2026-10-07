@@ -26,7 +26,7 @@ class GroqProvider @Inject constructor(
 ) : LLMProvider {
 
     override val name: String = "Groq"
-    override val availableModels: List<String> = listOf("llama-3.3-70b-specdec", "llama3-70b-8192", "gemma2-9b-it", "mixtral-8x7b-32768")
+    override val availableModels: List<String> = listOf("qwen/qwen3.8-27b", "openai/gpt-oss-120b", "openai/gpt-oss-20b", "llama-3.3-70b-versatile", "llama-3.3-70b-specdec")
 
     private val gson = Gson()
     private val mediaType = "application/json; charset=utf-8".toMediaType()
@@ -41,7 +41,7 @@ class GroqProvider @Inject constructor(
 
         val messagesList = request.messages.toOpenAIMessages(request.systemPrompt)
 
-        val selectedModel = request.model?.takeIf { it.isNotBlank() } ?: "llama-3.3-70b-specdec"
+        val selectedModel = request.model?.takeIf { it.isNotBlank() } ?: "qwen/qwen3.8-27b"
 
         val requestBodyMap = mutableMapOf<String, Any>(
             "model" to selectedModel,
