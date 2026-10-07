@@ -62,6 +62,9 @@ class MainActivity : ComponentActivity() {
             OpenDroidService.start(this)
         }
 
+        // Handle instant invocation via Assistant button, power button, or voice intent
+        checkAndHandleAssistIntent(intent)
+
         setContent {
             val config by settingsRepository.llmConfig.collectAsState(
                 initial = com.opendroid.ai.data.models.LLMConfig()
@@ -78,11 +81,31 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        checkAndHandleAssistIntent(intent)
+    }
+
+    private fun checkAndHandleAssistIntent(intent: android.content.Intent?) {
+        if (intent == null) return
+        val isAssist = intent.action == android.content.Intent.ACTION_ASSIST ||
+                       intent.action == "android.intent.action.VOICE_ASSIST" ||
+                       intent.getBooleanExtra("EXTRA_VOICE_TRIGGERED", false)
+        if (isAssist) {
+            val triggerIntent = android.content.Intent(this, OpenDroidService::class.java).apply {
+                action = OpenDroidService.ACTION_TRIGGER_RECORD
+            }
+            try {
+                startForegroundService(triggerIntent)
+            } catch (e: Exception) {
+                // Ignore if background restriction
+            }
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
-        // We want the foreground service to continue running even if UI is destroyed
-        // to maintain wake word tracking, but we can stop it if the user wants full quit.
-        // For production autonomous helper, we keep the service running in background.
     }
 }
 

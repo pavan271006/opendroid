@@ -52,6 +52,28 @@ class OpenDroidService : Service() {
     private var showFloatingButton = false
     @Volatile private var pendingApprovalListen = false
 
+    private val screenStateReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_SCREEN_OFF -> {
+                    Log.d("OpenDroidService", "Screen turned OFF: stopping mic and releasing wake locks (Hey Google battery saver)")
+                    wakeWordDetector.stopListening()
+                    releaseActiveWakeLock()
+                    glyphManager.onIdle()
+                }
+                Intent.ACTION_SCREEN_ON, Intent.ACTION_USER_PRESENT -> {
+                    Log.d("OpenDroidService", "Screen active: resuming interactive wake word detection")
+                    startWakeWordDetection()
+                }
+                Intent.ACTION_BATTERY_LOW -> {
+                    Log.d("OpenDroidService", "Battery low: pausing wake word to conserve battery")
+                    wakeWordDetector.stopListening()
+                    releaseActiveWakeLock()
+                }
+            }
+        }
+    }
+
     companion object {
         const val ACTION_TRIGGER_RECORD = "com.opendroid.ai.action.TRIGGER_RECORD"
         private const val CHANNEL_ID = "opendroid_channel"
@@ -68,10 +90,30 @@ class OpenDroidService : Service() {
         }
     }
 
+    private fun acquireActiveWakeLock(durationMs: Long = 45000L) {
+        try {
+            if (wakeLock?.isHeld != true) {
+                wakeLock?.acquire(durationMs)
+            }
+        } catch (e: Exception) {
+            Log.e("OpenDroidService", "Failed to acquire active wake lock", e)
+        }
+    }
+
+    private fun releaseActiveWakeLock() {
+        try {
+            if (wakeLock?.isHeld == true) {
+                wakeLock?.release()
+            }
+        } catch (e: Exception) {
+            // Ignore
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         
-        // Acquire PARTIAL_WAKE_LOCK to ensure background CPU remains active even when screen sleeps
+        // Initialize wake lock without acquiring it permanently (saves battery)
         try {
             val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
             wakeLock = powerManager.newWakeLock(
@@ -79,10 +121,9 @@ class OpenDroidService : Service() {
                 "OpenDroid::AssistantServiceWakeLock"
             ).apply {
                 setReferenceCounted(false)
-                acquire()
             }
         } catch (e: Exception) {
-            Log.e("OpenDroidService", "Failed to acquire PARTIAL_WAKE_LOCK", e)
+            Log.e("OpenDroidService", "Failed to create wake lock", e)
         }
 
         // Initialize engines
@@ -111,23 +152,56 @@ class OpenDroidService : Service() {
         startForegroundCompat()
         mcpServer.start()
 
-        // Hook Glyph Manager to AI Agent Lifecycle states
+        // Register Screen & Battery state receiver for dynamic power management
+        val filter = android.content.IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_USER_PRESENT)
+            addAction(Intent.ACTION_BATTERY_LOW)
+        }
+        registerReceiver(screenStateReceiver, filter)
+
+        // Hook Glyph Manager and targeted Wake Locks to AI Agent Lifecycle states
         serviceScope.launch {
             agentLoop.agentState.collectLatest { state ->
                 when (state) {
-                    is AgentState.Listening -> glyphManager.onListening()
-                    is AgentState.Thinking -> glyphManager.onThinking()
-                    is AgentState.ExecutingPlan -> glyphManager.onExecuting()
-                    is AgentState.Speaking -> glyphManager.onSuccess()
-                    is AgentState.Idle -> glyphManager.onIdle()
-                    is AgentState.Error -> glyphManager.onError()
-                    else -> glyphManager.onIdle()
+                    is AgentState.Listening -> {
+                        acquireActiveWakeLock()
+                        glyphManager.onListening()
+                    }
+                    is AgentState.Thinking -> {
+                        acquireActiveWakeLock()
+                        glyphManager.onThinking()
+                    }
+                    is AgentState.ExecutingPlan -> {
+                        acquireActiveWakeLock()
+                        glyphManager.onExecuting()
+                    }
+                    is AgentState.Speaking -> {
+                        acquireActiveWakeLock()
+                        glyphManager.onSuccess()
+                    }
+                    is AgentState.Idle -> {
+                        glyphManager.onIdle()
+                        releaseActiveWakeLock()
+                    }
+                    is AgentState.Error -> {
+                        glyphManager.onError()
+                        releaseActiveWakeLock()
+                    }
+                    else -> {
+                        glyphManager.onIdle()
+                        releaseActiveWakeLock()
+                    }
                 }
             }
         }
 
-        // Keep Wake Word detection running 24/7, including when screen is off or locked
-        startWakeWordDetection()
+        // Start wake word ONLY if screen is currently active/interactive
+        val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
+        if (powerManager?.isInteractive == true) {
+            startWakeWordDetection()
+        }
 
         // Monitor floating button config without killing wake word
         serviceScope.launch {
@@ -284,6 +358,11 @@ class OpenDroidService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        try {
+            unregisterReceiver(screenStateReceiver)
+        } catch (e: Exception) {
+            // Ignore
+        }
         serviceScope.cancel()
         mcpServer.stop()
         glyphManager.onIdle()
