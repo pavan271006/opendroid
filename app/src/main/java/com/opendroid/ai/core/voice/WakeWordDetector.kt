@@ -75,7 +75,7 @@ class WakeWordDetector(private val context: Context) {
                 val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 if (matches != null) {
                     for (match in matches) {
-                        if (match.contains("opendroid", ignoreCase = true) || match.contains("open droid", ignoreCase = true)) {
+                        if (match.contains("siri", ignoreCase = true) || match.contains("hey siri", ignoreCase = true) || match.contains("hey jarvis", ignoreCase = true) || match.contains("jarvis", ignoreCase = true) || match.contains("opendroid", ignoreCase = true) || match.contains("open droid", ignoreCase = true)) {
                             triggerWakeWord()
                             break
                         }
@@ -88,7 +88,7 @@ class WakeWordDetector(private val context: Context) {
                 val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 if (matches != null) {
                     for (match in matches) {
-                        if (match.contains("opendroid", ignoreCase = true) || match.contains("open droid", ignoreCase = true)) {
+                        if (match.contains("siri", ignoreCase = true) || match.contains("hey siri", ignoreCase = true) || match.contains("hey jarvis", ignoreCase = true) || match.contains("jarvis", ignoreCase = true) || match.contains("opendroid", ignoreCase = true) || match.contains("open droid", ignoreCase = true)) {
                             triggerWakeWord()
                             break
                         }
